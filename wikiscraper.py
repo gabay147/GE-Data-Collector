@@ -26,6 +26,7 @@ base_target = "https://prices.runescape.wiki/api/v1/osrs"
 CACHE_MAPPING = Path('cache/ge_mapping.json')
 CACHE_TIMESERIES = Path('cache/ge_timeseries.json')
 
+# DEFINE FUNCTIONS
 # get_mapping
 """Get GE mapping
 Gets mapping data from API if cached version does not exist
@@ -40,15 +41,54 @@ def get_mapping():
             print('Using cached mapping')
             return json.load(f)
 
+    print('Pulling mapping from API')
     data = requests.get(base_target + '/mapping', headers=headers).json()
 
     with open(CACHE_MAPPING, 'w') as f:
+        print('Writing cached mapping')
         json.dump(data, f)
 
-    print('Pulling mapping from API')
     return data
 
+# get_timeseries
+"""
+
+Required API arguments
+id - (required) Item id to return a time-series for.
+timestep - (required) Timestep of the time-series. Valid options are "5m", "1h", "6h" and "24h".
+"""
+def get_timeseries(item_id, timestep):
+    if CACHE_TIMESERIES.exists():
+        with open(CACHE_TIMESERIES, 'r') as f:
+            print('Using cached timeseries')
+            return json.load(f)
+
+    params = {
+        'id':item_id,
+        'timestep':timestep,
+    }
+
+    print('retrieving timeseries for item {}'.format(item_id))
+    data = requests.get(base_target + '/timeseries', headers=headers, params=params, timeout=10).json()
+
+    with open(CACHE_TIMESERIES, 'w') as f:
+        json.dump(data, f)
+
+    return data
+
+# Get mapping
 mapping = get_mapping()
 print(mapping[:5])
+
+# TEST: Get timeseries data for first item in mapping
+# Get first item id in mapping
+first_id = mapping[1]['id']
+print(first_id)
+
+# Get first timeseries
+first_timeseries = get_timeseries(first_id, timestep="24h")
+print(first_timeseries)
+
+
 
 # BEGIN SCRAPING CODE
