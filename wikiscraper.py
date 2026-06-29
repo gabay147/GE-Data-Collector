@@ -11,6 +11,7 @@ import requests
 import pandas as pd
 from pathlib import Path
 import json
+from time import sleep
 
 # Set credentials
 # OSRS Wiki prefers [feature] by [username] format
@@ -58,11 +59,6 @@ id - (required) Item id to return a time-series for.
 timestep - (required) Timestep of the time-series. Valid options are "5m", "1h", "6h" and "24h".
 """
 def get_timeseries(item_id, timestep):
-    if CACHE_TIMESERIES.exists():
-        with open(CACHE_TIMESERIES, 'r') as f:
-            print('Using cached timeseries')
-            return json.load(f)
-
     params = {
         'id':item_id,
         'timestep':timestep,
@@ -71,23 +67,41 @@ def get_timeseries(item_id, timestep):
     print('retrieving timeseries for item {}'.format(item_id))
     data = requests.get(base_target + '/timeseries', headers=headers, params=params, timeout=10).json()
 
-    with open(CACHE_TIMESERIES, 'w') as f:
-        json.dump(data, f)
-
     return data
 
-# Get mapping
-mapping = get_mapping()
-print(mapping[:5])
+# get_data
+"""
+Pulls timeseries data for each item in enumerable item_ids
+"""
+def get_data(item_ids, timestep = '24h', ratelimit = 1):
+    frames = []
 
-# TEST: Get timeseries data for first item in mapping
-# Get first item id in mapping
-first_id = mapping[1]['id']
-print(first_id)
+    for item_id in item_ids:
+        df = pd.json_normalize(
+            get_timeseries(item_id, timestep)['data']
+        )
 
-# Get first timeseries
-first_timeseries = get_timeseries(first_id, timestep="24h")
-print(first_timeseries)
+        df['item_id'] = item_id
+        frames.append(df)
+
+        sleep(ratelimit)
+
+    final_df = pd.concat(frames, ignore_index=True)
+    return final_df
+
+
+# # Get mapping
+# mapping = get_mapping()
+# print(mapping[:5])
+#
+# # TEST: Get timeseries data for first item in mapping
+# # Get first item id in mapping
+# first_id = mapping[1]['id']
+# print(first_id)
+#
+# # Get first timeseries
+# first_timeseries = get_timeseries(first_id, timestep="24h")
+# print(first_timeseries)
 
 
 
